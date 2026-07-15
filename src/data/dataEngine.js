@@ -5,42 +5,42 @@ import { localDb } from "./localDb";
 // ---------------------------------------------------------------------
 
 export const VOC_LEVELS = ["low", "medium", "high"];
-export const VOC_LABEL = { low: "Low", medium: "Medium", high: "High" };
-export const NPK_LABEL = { low: "Low", normal: "Normal", high: "High" };
 const VOC_SCORE = { low: 0, medium: 15, high: 30 };
 
+// nameKey points at a translation key in src/i18n/translations.js —
+// this is what makes device names bilingual instead of hardcoded English.
 const DEVICE_SEEDS = [
   {
     id: "AG-1001",
-    name: "North Field Sensor A",
+    nameKey: "deviceNorthFieldA",
     lat: 0.2,
     lng: 0.25,
     base: { battery: 87, status: "online", soilMoisture: 52, soilTemp: 24, airTemp: 29, airHum: 58, ec: 1.2, voc: "low", n: "normal", p: "normal", k: "normal" },
   },
   {
     id: "AG-1002",
-    name: "North Field Sensor B",
+    nameKey: "deviceNorthFieldB",
     lat: 0.35,
     lng: 0.3,
     base: { battery: 63, status: "online", soilMoisture: 31, soilTemp: 26, airTemp: 31, airHum: 49, ec: 1.6, voc: "medium", n: "low", p: "normal", k: "normal" },
   },
   {
     id: "AG-1003",
-    name: "South Field Sensor A",
+    nameKey: "deviceSouthFieldA",
     lat: 0.55,
     lng: 0.62,
     base: { battery: 18, status: "warning", soilMoisture: 22, soilTemp: 28, airTemp: 33, airHum: 40, ec: 2.1, voc: "high", n: "low", p: "low", k: "normal" },
   },
   {
     id: "AG-1004",
-    name: "South Field Sensor B",
+    nameKey: "deviceSouthFieldB",
     lat: 0.68,
     lng: 0.4,
     base: { battery: 5, status: "offline", soilMoisture: 0, soilTemp: 0, airTemp: 0, airHum: 0, ec: 0, voc: "low", n: "normal", p: "normal", k: "normal" },
   },
   {
     id: "AG-1005",
-    name: "Greenhouse Sensor",
+    nameKey: "deviceGreenhouse",
     lat: 0.8,
     lng: 0.75,
     base: { battery: 95, status: "online", soilMoisture: 60, soilTemp: 23, airTemp: 27, airHum: 70, ec: 1.0, voc: "low", n: "normal", p: "normal", k: "normal" },
@@ -113,7 +113,7 @@ function seedDevices() {
   const now = Date.now();
   return DEVICE_SEEDS.map((s) => ({
     id: s.id,
-    name: s.name,
+    nameKey: s.nameKey,
     lat: s.lat,
     lng: s.lng,
     lastUpdate: now,
@@ -121,6 +121,9 @@ function seedDevices() {
   }));
 }
 
+// Alerts carry a `type`, structured `params`, and no text — the UI layer
+// (src/i18n/alertText.js) turns type + params into a localized title and
+// message via the current language's translation dictionary.
 function seedAlerts() {
   const now = Date.now();
   return [
@@ -128,24 +131,21 @@ function seedAlerts() {
       id: "seed-1",
       type: "deviceOffline",
       severity: "critical",
-      title: "Device disconnected",
-      message: "South Field Sensor B has been offline for 3 hours.",
+      params: { deviceNameKey: "deviceSouthFieldB" },
       time: now - 3 * 60 * 60 * 1000,
     },
     {
       id: "seed-2",
       type: "lowBattery",
       severity: "warning",
-      title: "Low battery",
-      message: "South Field Sensor A battery at 18%.",
+      params: { deviceNameKey: "deviceSouthFieldA", pct: 18 },
       time: now - 60 * 60 * 1000,
     },
     {
       id: "seed-3",
       type: "diseaseRisk",
       severity: "warning",
-      title: "Disease risk rising",
-      message: "Fungal risk trending upward in South Field due to humidity.",
+      params: {},
       time: now - 40 * 60 * 1000,
     },
   ];
@@ -161,24 +161,22 @@ function computePrediction(devices) {
   const diseaseProb = clamp(30 + clamp(65 - avgMoisture, 0, 40) + offlineCount * 5, 4, 96);
   const risk = diseaseProb >= 65 ? "high" : diseaseProb >= 35 ? "medium" : "low";
   const healthScore = Math.round(clamp(100 - diseaseProb * 0.6 - offlineCount * 4, 10, 99));
+  const lowMoisture = avgMoisture < 35;
 
   return {
     farmHealthScore: healthScore,
     diseaseRisk: risk,
     diseaseProbabilityPercent: Math.round(diseaseProb),
-    irrigationRecommendation:
-      avgMoisture < 35 ? "Irrigate within 6 hours — soil moisture trending low" : "No irrigation needed for the next 24 hours",
+    irrigationCode: lowMoisture ? "irrigateSoon" : "noIrrigationNeeded",
     expectedIrrigationTime: Date.now() + 6 * 60 * 60 * 1000,
-    fertilizerRecommendation:
-      avgMoisture < 35 ? "Apply nitrogen-rich fertilizer after next irrigation cycle" : "Fertilizer levels adequate — recheck in 5 days",
-    cropHealthSummary:
-      risk === "high" ? "Crop showing early stress signs — fungal risk elevated" : risk === "medium" ? "Crop stable, monitor humidity closely" : "Crop healthy, growing on schedule",
+    fertilizerCode: lowMoisture ? "applyNitrogen" : "levelsAdequate",
+    cropHealthCode: risk === "high" ? "cropStressSigns" : risk === "medium" ? "cropStableMonitor" : "cropHealthy",
     predictedWaterUsageLiters: Math.round(850 + (65 - avgMoisture) * 8),
-    suggestedActions: [
-      ...(risk !== "low" ? ["Inspect affected zones within 24 hours"] : []),
-      ...(avgMoisture < 35 ? ["Schedule irrigation cycle"] : []),
-      ...(offlineCount > 0 ? ["Check offline devices in the field"] : []),
-      "Review analytics for weekly trend",
+    suggestedActionCodes: [
+      ...(risk !== "low" ? ["actionInspectZones"] : []),
+      ...(lowMoisture ? ["actionScheduleIrrigation"] : []),
+      ...(offlineCount > 0 ? ["actionCheckOffline"] : []),
+      "actionReviewAnalytics",
     ],
   };
 }
@@ -197,8 +195,8 @@ function seedHistory(baseValue, amplitude, points = 24) {
 // The engine: a tiny pub/sub store the React hooks subscribe to
 // ---------------------------------------------------------------------
 
-const STORAGE_KEY = "agriguard-state-v1";
-const HISTORY_KEY = "agriguard-history-v1";
+const STORAGE_KEY = "agriguard-state-v2";
+const HISTORY_KEY = "agriguard-history-v2";
 
 class DataEngine {
   constructor() {
@@ -251,31 +249,20 @@ class DataEngine {
     this.devices = this.devices.map(tickDevice);
     this.lastUpdate = Date.now();
 
-    // Push history forward by one point per metric
-    const avgMoisture =
-      this.devices.filter((d) => d.status !== "offline").reduce((s, d) => s + d.soilMoisture, 0) /
-      Math.max(1, this.devices.filter((d) => d.status !== "offline").length);
-    const avgTemp =
-      this.devices.filter((d) => d.status !== "offline").reduce((s, d) => s + d.airTemp, 0) /
-      Math.max(1, this.devices.filter((d) => d.status !== "offline").length);
-    const avgHum =
-      this.devices.filter((d) => d.status !== "offline").reduce((s, d) => s + d.airHum, 0) /
-      Math.max(1, this.devices.filter((d) => d.status !== "offline").length);
-    const uptimePct = Math.round(
-      (this.devices.filter((d) => d.status !== "offline").length / this.devices.length) * 100
-    );
+    const activeDevices = this.devices.filter((d) => d.status !== "offline");
+    const avg = (fn) => (activeDevices.length ? activeDevices.reduce((s, d) => s + fn(d), 0) / activeDevices.length : 0);
+    const uptimePct = Math.round((activeDevices.length / this.devices.length) * 100);
 
     const push = (key, value) => {
       const arr = [...this.history[key], { time: Date.now(), value }].slice(-24);
       this.history = { ...this.history, [key]: arr };
     };
-    push("soilMoisture", avgMoisture || 0);
-    push("temperature", avgTemp || 0);
-    push("humidity", avgHum || 0);
+    push("soilMoisture", avg((d) => d.soilMoisture));
+    push("temperature", avg((d) => d.airTemp));
+    push("humidity", avg((d) => d.airHum));
     push("waterUsage", 100 + Math.random() * 60);
     push("uptime", uptimePct);
 
-    // Occasionally raise a fresh low-moisture alert
     const lowDevice = this.devices.find((d) => d.status !== "offline" && d.soilMoisture < 25);
     if (lowDevice && Math.random() < 0.2) {
       this.alerts = [
@@ -283,8 +270,7 @@ class DataEngine {
           id: `a-${Date.now()}`,
           type: "lowMoisture",
           severity: "warning",
-          title: "Low soil moisture",
-          message: `${lowDevice.name} reports ${lowDevice.soilMoisture}% soil moisture — irrigation recommended.`,
+          params: { deviceNameKey: lowDevice.nameKey, pct: lowDevice.soilMoisture },
           time: Date.now(),
         },
         ...this.alerts,
