@@ -1,3 +1,5 @@
+import { useLang } from "../i18n/LanguageContext";
+
 export function SectionCard({ title, trailing, children, className = "" }) {
   return (
     <div className={`bg-white border border-stone-200 rounded-2xl p-5 ${className}`}>
@@ -11,33 +13,34 @@ export function SectionCard({ title, trailing, children, className = "" }) {
 }
 
 const STATUS_STYLE = {
-  online: { bg: "bg-emerald-100", fg: "text-emerald-700", label: "Online" },
-  warning: { bg: "bg-amber-100", fg: "text-amber-700", label: "Warning" },
-  offline: { bg: "bg-red-100", fg: "text-red-700", label: "Offline" },
+  online: { bg: "bg-emerald-100", fg: "text-emerald-700", labelKey: "statusOnline", dot: "bg-emerald-600" },
+  warning: { bg: "bg-amber-100", fg: "text-amber-700", labelKey: "statusWarning", dot: "bg-amber-600" },
+  offline: { bg: "bg-red-100", fg: "text-red-700", labelKey: "statusOffline", dot: "bg-red-600" },
 };
 
 export function StatusChip({ status }) {
+  const { t } = useLang();
   const s = STATUS_STYLE[status] || STATUS_STYLE.offline;
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.fg}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${status === "online" ? "bg-emerald-600" : status === "warning" ? "bg-amber-600" : "bg-red-600"}`} />
-      {s.label}
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+      {t(s.labelKey)}
     </span>
   );
 }
 
 const RISK_STYLE = {
-  low: { bg: "bg-emerald-100", fg: "text-emerald-700" },
-  medium: { bg: "bg-amber-100", fg: "text-amber-800" },
-  high: { bg: "bg-red-100", fg: "text-red-700" },
+  low: { bg: "bg-emerald-100", fg: "text-emerald-700", labelKey: "riskLow" },
+  medium: { bg: "bg-amber-100", fg: "text-amber-800", labelKey: "riskMedium" },
+  high: { bg: "bg-red-100", fg: "text-red-700", labelKey: "riskHigh" },
 };
 
 export function RiskChip({ risk }) {
+  const { t } = useLang();
   const s = RISK_STYLE[risk] || RISK_STYLE.low;
-  const label = risk === "low" ? "Low" : risk === "medium" ? "Medium" : "High";
   return (
     <span className={`text-xs font-extrabold px-3 py-1.5 rounded-full ${s.bg} ${s.fg}`}>
-      {label} risk
+      {t(s.labelKey)}
     </span>
   );
 }
