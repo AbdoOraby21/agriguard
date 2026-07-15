@@ -1,90 +1,57 @@
-import { useState } from "react";
-import { Radio, X } from "lucide-react";
+import { Droplet, Bug, RadioTower, BatteryWarning, X } from "lucide-react";
 import { useLang } from "../i18n/LanguageContext";
+import { alertTitle, alertMessage } from "../i18n/contentHelpers";
 
-const STATUS_COLOR = { online: "#1F9D63", warning: "#E0A233", offline: "#D9483D" };
+const ICON = { lowMoisture: Droplet, diseaseRisk: Bug, deviceOffline: RadioTower, lowBattery: BatteryWarning };
 
-function Legend({ t }) {
-  const items = [
-    ["#1F9D63", t("legendWorking")],
-    ["#E0A233", t("legendWarning")],
-    ["#D9483D", t("legendOffline")],
-  ];
-  return (
-    <div className="flex items-center justify-evenly mb-4">
-      {items.map(([color, label]) => (
-        <div key={label} className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-          <span className="text-[12.5px] font-semibold text-stone-500">{label}</span>
-        </div>
-      ))}
-    </div>
-  );
+function timeAgo(ts, t) {
+  const mins = Math.round((Date.now() - ts) / 60000);
+  if (mins < 1) return t("justNow");
+  if (mins < 60) return t("minsAgo", mins);
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return t("hoursAgo", hrs);
+  return t("daysAgo", Math.round(hrs / 24));
 }
 
-function DeviceSheet({ device, onClose, t }) {
-  if (!device) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30" />
-      <div
-        className="relative bg-white w-full rounded-t-3xl p-6 max-w-lg mx-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="font-extrabold text-lg text-stone-900">{t(device.nameKey)}</div>
-            <div className="text-stone-500 text-xs mt-0.5">{t("deviceIdLabel")}: {device.id}</div>
-          </div>
-          <button onClick={onClose} className="text-stone-400"><X size={20} /></button>
-        </div>
-        <div className="mt-4">
-          {device.status === "offline" ? (
-            <span className="text-red-600 font-bold">{t("deviceDisconnected")}</span>
-          ) : (
-            <span className="text-stone-700 font-semibold text-sm">
-              {t("deviceSheetStatusLine", device.soilMoisture, device.battery)}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function FieldMapScreen({ data }) {
+export default function NotificationsScreen({ data, onClose }) {
   const { t } = useLang();
-  const [selected, setSelected] = useState(null);
+  const alerts = data.alerts;
 
   return (
-    <div className="px-5 pt-4 pb-28 max-w-lg mx-auto">
-      <h1 className="font-display text-lg font-extrabold text-stone-900 mb-4">{t("fieldMapTitle")}</h1>
-      <Legend t={t} />
-      <div
-        className="relative rounded-3xl border border-stone-200 overflow-hidden"
-        style={{
-          height: "60vh",
-          backgroundImage:
-            "linear-gradient(135deg, #E7F2E9, #D3EADA), repeating-linear-gradient(0deg, rgba(27,107,79,0.06) 0 1px, transparent 1px 36px), repeating-linear-gradient(90deg, rgba(27,107,79,0.06) 0 1px, transparent 1px 36px)",
-        }}
-      >
-        {data.devices.map((d) => (
-          <button
-            key={d.id}
-            onClick={() => setSelected(d)}
-            className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-            style={{ left: `${d.lng * 100}%`, top: `${d.lat * 100}%` }}
-          >
-            <span
-              className="w-7 h-7 rounded-full flex items-center justify-center border-[2.5px] border-white shadow-lg"
-              style={{ background: STATUS_COLOR[d.status] }}
-            >
-              <Radio size={13} className="text-white" />
-            </span>
-          </button>
-        ))}
+    <div className="fixed inset-0 z-50 bg-stone-100">
+      <div className="max-w-lg mx-auto h-full flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-stone-200">
+          <h1 className="font-display text-lg font-extrabold text-stone-900">{t("notificationsTitle")}</h1>
+          <button onClick={onClose} className="text-stone-400"><X size={22} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {alerts.length === 0 && (
+            <p className="text-center text-stone-400 mt-10">{t("noNotifications")}</p>
+          )}
+          {alerts.map((a) => {
+            const Icon = ICON[a.type] || Droplet;
+            const critical = a.severity === "critical";
+            const warn = a.severity === "warning";
+            const bg = critical ? "bg-red-100" : warn ? "bg-amber-100" : "bg-emerald-100";
+            const fg = critical ? "text-red-600" : warn ? "text-amber-600" : "text-emerald-700";
+
+            return (
+              <div key={a.id} className="bg-white rounded-2xl border border-stone-200 p-3.5 flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${bg}`}>
+                  <Icon size={18} className={fg} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-extrabold text-[13.5px] text-stone-900 truncate">{alertTitle(t, a)}</span>
+                    <span className="text-[11px] text-stone-400 whitespace-nowrap">{timeAgo(a.time, t)}</span>
+                  </div>
+                  <p className="text-[12.5px] text-stone-500 mt-0.5">{alertMessage(t, a)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <DeviceSheet device={selected} onClose={() => setSelected(null)} t={t} />
     </div>
   );
 }
