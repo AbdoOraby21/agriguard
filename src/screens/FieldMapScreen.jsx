@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Radio, X } from "lucide-react";
+import { useLang } from "../i18n/LanguageContext";
 
 const STATUS_COLOR = { online: "#1F9D63", warning: "#E0A233", offline: "#D9483D" };
 
-function Legend() {
+function Legend({ t }) {
   const items = [
-    ["#1F9D63", "Working"],
-    ["#E0A233", "Warning"],
-    ["#D9483D", "Offline"],
+    ["#1F9D63", t("legendWorking")],
+    ["#E0A233", t("legendWarning")],
+    ["#D9483D", t("legendOffline")],
   ];
   return (
     <div className="flex items-center justify-evenly mb-4">
@@ -21,7 +22,7 @@ function Legend() {
   );
 }
 
-function DeviceSheet({ device, onClose }) {
+function DeviceSheet({ device, onClose, t }) {
   if (!device) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
@@ -32,17 +33,17 @@ function DeviceSheet({ device, onClose }) {
       >
         <div className="flex items-start justify-between">
           <div>
-            <div className="font-extrabold text-lg text-stone-900">{device.name}</div>
-            <div className="text-stone-500 text-xs mt-0.5">ID: {device.id}</div>
+            <div className="font-extrabold text-lg text-stone-900">{t(device.nameKey)}</div>
+            <div className="text-stone-500 text-xs mt-0.5">{t("deviceIdLabel")}: {device.id}</div>
           </div>
           <button onClick={onClose} className="text-stone-400"><X size={20} /></button>
         </div>
         <div className="mt-4">
           {device.status === "offline" ? (
-            <span className="text-red-600 font-bold">Device Disconnected</span>
+            <span className="text-red-600 font-bold">{t("deviceDisconnected")}</span>
           ) : (
             <span className="text-stone-700 font-semibold text-sm">
-              Soil moisture {device.soilMoisture}% · Battery {device.battery}%
+              {t("deviceSheetStatusLine", device.soilMoisture, device.battery)}
             </span>
           )}
         </div>
@@ -52,12 +53,13 @@ function DeviceSheet({ device, onClose }) {
 }
 
 export default function FieldMapScreen({ data }) {
+  const { t } = useLang();
   const [selected, setSelected] = useState(null);
 
   return (
     <div className="px-5 pt-4 pb-28 max-w-lg mx-auto">
-      <h1 className="font-display text-lg font-extrabold text-stone-900 mb-4">Field Map</h1>
-      <Legend />
+      <h1 className="font-display text-lg font-extrabold text-stone-900 mb-4">{t("fieldMapTitle")}</h1>
+      <Legend t={t} />
       <div
         className="relative rounded-3xl border border-stone-200 overflow-hidden"
         style={{
@@ -82,7 +84,7 @@ export default function FieldMapScreen({ data }) {
           </button>
         ))}
       </div>
-      <DeviceSheet device={selected} onClose={() => setSelected(null)} />
+      <DeviceSheet device={selected} onClose={() => setSelected(null)} t={t} />
     </div>
   );
 }
